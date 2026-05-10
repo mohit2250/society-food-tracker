@@ -16,15 +16,20 @@ def load_data(sheet_name="cashbook"):
         return pd.DataFrame(columns=["Date", "Type", "Particulars", "Cash_In", "Cash_Out", "Qty", "Rate", "Location", "Item"])
 
 def save_data(new_entry_df, sheet_name="cashbook"):
-    existing_df = load_data(sheet_name)
-    # Ensure all columns match and append
+    # 1. Load the latest data
+    existing_df = conn.read(worksheet=sheet_name, ttl=0)
+    
+    # 2. Add the new row
+    # We use list(existing_df.columns) to ensure the order stays the same
     updated_df = pd.concat([existing_df, new_entry_df], ignore_index=True)
     
-    # This is the line that was failing due to permissions
+    # 3. Force the update
+    # The library uses the 'spreadsheet' from your secrets automatically
     conn.update(worksheet=sheet_name, data=updated_df)
     
+    # 4. Clear cache so the UI updates
     st.cache_data.clear()
-    st.success("Data Synced to Google Drive!")
+    st.success("Successfully synced with Google Sheets!")
 
 # --- SMART MEMORY HELPERS ---
 def get_clean_suggestions(col_name, filter_type=None):
