@@ -17,11 +17,14 @@ def load_data(sheet_name="cashbook"):
 
 def save_data(new_entry_df, sheet_name="cashbook"):
     existing_df = load_data(sheet_name)
-    # Combine old data with the new entry
+    # Ensure all columns match and append
     updated_df = pd.concat([existing_df, new_entry_df], ignore_index=True)
-    # Write back to Google Sheets
+    
+    # This is the line that was failing due to permissions
     conn.update(worksheet=sheet_name, data=updated_df)
-    st.cache_data.clear() # Clear memory so it shows the new row immediately
+    
+    st.cache_data.clear()
+    st.success("Data Synced to Google Drive!")
 
 # --- SMART MEMORY HELPERS ---
 def get_clean_suggestions(col_name, filter_type=None):
