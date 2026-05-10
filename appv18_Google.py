@@ -9,36 +9,32 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data(sheet_name="cashbook"):
     try:
-        # This tells the connection to use the Service Account credentials
-        # rather than a public URL
+        # We try to read the sheet
         df = conn.read(worksheet=sheet_name, ttl=0)
-        
-        # If the sheet is brand new and totally empty, pandas might get confused. 
-        # We ensure it returns a valid dataframe even if empty.
+        # If the result is totally empty or missing, provide the structure
         if df is None or df.empty:
             return pd.DataFrame(columns=["Date", "Type", "Particulars", "Cash_In", "Cash_Out", "Qty", "Rate", "Location", "Item"])
         return df
-    except Exception as e:
-        st.error(f"Error connecting to Google Sheets: {e}")
-        # Return empty template as a fallback
+    except Exception:
+        # Fallback if worksheet is missing or misnamed
         return pd.DataFrame(columns=["Date", "Type", "Particulars", "Cash_In", "Cash_Out", "Qty", "Rate", "Location", "Item"])
-        
+
 def save_data(new_entry_df, sheet_name="cashbook"):
-    # 1. Load the latest data
-    existing_df = conn.read(worksheet=sheet_name, ttl=0)
+    # 1. Load existing data
+    existing_df = load_data(sheet_name)
     
-    # 2. Add the new row
-    # We use list(existing_df.columns) to ensure the order stays the same
+    # 2. Append new row
+    # We use 'ignore_index' to keep the row numbers clean
     updated_df = pd.concat([existing_df, new_entry_df], ignore_index=True)
     
-    # 3. Force the update
-    # The library uses the 'spreadsheet' from your secrets automatically
-    conn.update(worksheet=sheet_name, data=updated_df)
-    
-    # 4. Clear cache so the UI updates
-    st.cache_data.clear()
-    st.success("Successfully synced with Google Sheets!")
-
+    try:
+        # 3. Use the 'update' method specifically for Service Accounts
+        conn.update(worksheet=sheet_name, data=updated_df)
+        st.cache_data.clear()
+        st.success("Entry Saved Successfully!")
+    except Exception as e:
+        st.error(f"Failed to Save: {e}")
+        
 # --- SMART MEMORY HELPERS ---
 def get_clean_suggestions(col_name, filter_type=None):
     df = load_data("cashbook")
