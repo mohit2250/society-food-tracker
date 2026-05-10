@@ -9,12 +9,20 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data(sheet_name="cashbook"):
     try:
-        # ttl=0 ensures it doesn't show old data from cache
-        return conn.read(worksheet=sheet_name, ttl=0)
+        # This tells the connection to use the Service Account credentials
+        # rather than a public URL
+        df = conn.read(worksheet=sheet_name, ttl=0)
+        
+        # If the sheet is brand new and totally empty, pandas might get confused. 
+        # We ensure it returns a valid dataframe even if empty.
+        if df is None or df.empty:
+            return pd.DataFrame(columns=["Date", "Type", "Particulars", "Cash_In", "Cash_Out", "Qty", "Rate", "Location", "Item"])
+        return df
     except Exception as e:
-        # If sheet is empty, return empty dataframe with correct headers
+        st.error(f"Error connecting to Google Sheets: {e}")
+        # Return empty template as a fallback
         return pd.DataFrame(columns=["Date", "Type", "Particulars", "Cash_In", "Cash_Out", "Qty", "Rate", "Location", "Item"])
-
+        
 def save_data(new_entry_df, sheet_name="cashbook"):
     # 1. Load the latest data
     existing_df = conn.read(worksheet=sheet_name, ttl=0)
