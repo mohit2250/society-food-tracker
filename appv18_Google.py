@@ -3,23 +3,25 @@ import pandas as pd
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
-# --- APP CONFIG ---
-st.set_page_config(layout="wide", page_title="Society ERP Cloud")
-st.title("🍏 Society Smart Cloud ERP")
-
-# --- GOOGLE SHEETS CONNECTION ---
-# This replaces the SQLAlchemy engine
+# --- DATABASE SETUP (CLOUD VERSION) ---
+# This creates a connection using the URL you will provide in "Secrets"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-def load_data():
-    # Fetches the data from your Google Sheet
-    return conn.read(worksheet="cashbook", ttl=0) # ttl=0 means no cache, always fresh
+def load_data(sheet_name="cashbook"):
+    try:
+        # ttl=0 ensures it doesn't show old data from cache
+        return conn.read(worksheet=sheet_name, ttl=0)
+    except Exception as e:
+        # If sheet is empty, return empty dataframe with correct headers
+        return pd.DataFrame(columns=["Date", "Type", "Particulars", "Cash_In", "Cash_Out", "Qty", "Rate", "Location", "Item"])
 
-def save_data(new_df):
-    existing_df = load_data()
-    updated_df = pd.concat([existing_df, new_df], ignore_index=True)
-    conn.update(worksheet="cashbook", data=updated_df)
-    st.cache_data.clear()
+def save_data(new_entry_df, sheet_name="cashbook"):
+    existing_df = load_data(sheet_name)
+    # Combine old data with the new entry
+    updated_df = pd.concat([existing_df, new_entry_df], ignore_index=True)
+    # Write back to Google Sheets
+    conn.update(worksheet=sheet_name, data=updated_df)
+    st.cache_data.clear() # Clear memory so it shows the new row immediately
 
 # --- SMART MEMORY HELPERS ---
 def get_clean_suggestions(col_name, filter_type=None):
